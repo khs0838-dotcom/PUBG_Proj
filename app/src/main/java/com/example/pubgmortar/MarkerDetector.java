@@ -2,137 +2,17 @@ package com.example.pubgmortar;
 
 import android.graphics.Bitmap;
 import org.opencv.android.Utils;
-import org.opencv.core.Core;
 import org.opencv.core.Mat;
-import org.opencv.core.MatOfPoint;
-import org.opencv.core.MatOfPoint2f;
-import org.opencv.core.Point;
-import org.opencv.core.Rect;
-import org.opencv.core.Scalar;
-import org.opencv.core.Size;
-import org.opencv.imgproc.Imgproc;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 
-/**
- * Conservative marker candidate detector for a photographed PUBG tactical map.
- * Markers vary with team, colorblind settings and game patch. This is a heuristic,
- * NOT a trained marker classifier. It declines to produce a result if unsure.
- */
+/** Android bitmap adapter for multi-target marker detection. */
 public final class MarkerDetector {
     private MarkerDetector() {}
-    private static final class Candidate {
-        final Point p; final double score;
-        Candidate(Point p,double score) { this.p=p; this.score=score; }
-    }
-    public static final class Pair {
-        public final Point playerPhoto, targetPhoto;
-        public final String warning;
-        Pair(Point player, Point target, String warning) {
-            playerPhoto=player; targetPhoto=target; this.warning=warning;
-        }
-    }
-    public static Pair find(Bitmap photo, Bitmap reference,
-                            PhotoMapMatcher.Result mapping, double metersPerMapPixel) {
-        Mat image=new Mat(), base=new Mat(), aligned=new Mat(), inv=new Mat();
-        Mat diff=new Mat(), diffGray=new Mat(), hsv=new Mat();
-        Mat white=new Mat(), colored=new Mat(), changed=new Mat(), valid=new Mat();
-        Mat validWarp=new Mat(), kernel=new Mat();
+    public static MarkerFeatureDetector.Batch find(Bitmap photo,Bitmap reference,
+            PhotoMapMatcher.Result mapping,double metersPerMapPixel) {
+        Mat image=new Mat(),base=new Mat();
         try {
-            Utils.bitmapToMat(photo,image);
-            Utils.bitmapToMat(reference,base);
-            inv=mapping.shotToMap.inv();
-            Imgproc.warpPerspective(base,aligned,inv,image.size(),Imgproc.INTER_LINEAR,
-                Core.BORDER_CONSTANT,new Scalar(0,0,0,255));
-            Imgproc.cvtColor(image,hsv,Imgproc.COLOR_RGBA2RGB);
-            Imgproc.cvtColor(hsv,hsv,Imgproc.COLOR_RGB2HSV);
-            Core.absdiff(image,aligned,diff);
-            Imgproc.cvtColor(diff,diffGray,Imgproc.COLOR_RGBA2GRAY);
-            Imgproc.threshold(diffGray,changed,65,255,Imgproc.THRESH_BINARY);
-            Mat all=new Mat(base.rows(),base.cols(),org.opencv.core.CvType.CV_8UC1,new Scalar(255));
-            Imgproc.warpPerspective(all,validWarp,inv,image.size(),Imgproc.INTER_NEAREST,
-                Core.BORDER_CONSTANT,new Scalar(0));
-            all.release();
-            // avoid thin boundary caused by warp interpolation
-            kernel=Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,new Size(5,5));
-            Imgproc.erode(validWarp,valid,kernel);
-            Core.bitwise_and(changed,valid,changed);
-            Mat colors=new Mat(), whites=new Mat(), reds=new Mat();
-            try {
-                // Saturated brightly-colored waypoints / colored marker shapes.
-                Core.inRange(hsv,new Scalar(0,95,130),new Scalar(179,255,255),colors);
-                Core.inRange(hsv,new Scalar(0,0,185),new Scalar(179,72,255),whites);
-                Core.bitwise_and(changed,colors,colored);
-                Core.bitwise_and(changed,whites,white);
-            } finally { colors.release(); whites.release(); reds.release(); }
-            // Remove single-pixel noise; do not close blobs into large painted areas.
-            Imgproc.morphologyEx(white,white,Imgproc.MORPH_OPEN,kernel);
-            Imgproc.morphologyEx(colored,colored,Imgproc.MORPH_OPEN,kernel);
-            List<Candidate> player=contours(white,true,image.cols(),image.rows());
-            List<Candidate> target=contours(colored,false,image.cols(),image.rows());
-            // Favor two well-separated conspicuous overlays within assumed mortar range.
-            Candidate pBest=null,tBest=null;
-            double top=-1,runner=-1;
-            for(int i=0;i<Math.min(12,player.size());i++) {
-                Candidate p=player.get(i);
-                Point mapP=mapping.mapPoint(p.p);
-                if(!inside(mapP,reference)) continue;
-                for(int j=0;j<Math.min(16,target.size());j++) {
-                    Candidate t=target.get(j);
-                    Point mapT=mapping.mapPoint(t.p);
-                    if(!inside(mapT,reference)) continue;
-                    double range=Math.hypot(mapP.x-mapT.x,mapP.y-mapT.y)*metersPerMapPixel;
-                    if(range<110 || range>720) continue;
-                    double score=p.score+t.score;
-                    if(score>top) { runner=top; top=score; pBest=p; tBest=t; }
-                    else runner=Math.max(runner,score);
-                }
-            }
-            // Require a substantial lead over the runner-up so we don't invent a target.
-            if(pBest==null || top<28 || (runner>0 && top<runner*1.12)) return null;
-            return new Pair(pBest.p,tBest.p,"자동 마커 탐지는 시험 기능입니다. 촬영된 사진의 마커와 결과를 반드시 비교하세요.");
-        } finally {
-            image.release(); base.release(); aligned.release(); inv.release();
-            diff.release(); diffGray.release(); hsv.release();
-            white.release(); colored.release(); changed.release();valid.release();validWarp.release();kernel.release();
-        }
-    }
-    private static boolean inside(Point p, Bitmap map) {
-        return Double.isFinite(p.x) && Double.isFinite(p.y) && p.x>=0 && p.y>=0 &&
-            p.x<map.getWidth() && p.y<map.getHeight();
-    }
-    private static List<Candidate> contours(Mat mask,boolean white,int width,int height) {
-        List<MatOfPoint> shapes=new ArrayList<>(); Mat hierarchy=new Mat();
-        Imgproc.findContours(mask,shapes,hierarchy,Imgproc.RETR_EXTERNAL,Imgproc.CHAIN_APPROX_SIMPLE);
-        hierarchy.release();
-        List<Candidate> found=new ArrayList<>();
-        for(MatOfPoint shape:shapes) {
-            double area=Imgproc.contourArea(shape);
-            Rect r=Imgproc.boundingRect(shape);
-            double diameter=Math.max(r.width,r.height);
-            if(area<13 || area>1650 || diameter<5 || diameter>64 ||
-                Math.min(r.width,r.height)<4 ||
-                (double)Math.max(r.width,r.height)/Math.min(r.width,r.height)>2.5) {
-                shape.release();continue;
-            }
-            MatOfPoint2f curve=new MatOfPoint2f(shape.toArray());
-            MatOfPoint2f poly=new MatOfPoint2f();
-            double perimeter=Imgproc.arcLength(curve,true);
-            Imgproc.approxPolyDP(curve,poly,0.09*perimeter,true);
-            int vertices=poly.rows();
-            curve.release();poly.release();
-            if(white && (vertices<3 || vertices>7)) {shape.release();continue;}
-            if(!white && vertices<3) {shape.release();continue;}
-            // White triangles are a player-icon candidate; colored compact shapes a ping candidate.
-            double compactness=4*Math.PI*area/(perimeter*perimeter+1);
-            double penalty=Math.abs(diameter-(white?16.0:20.0))*.2;
-            double score=(white?(vertices<=4?22:12):20)+Math.min(area*.055,15)
-                +Math.min(10,compactness*11)-penalty;
-            found.add(new Candidate(new Point(r.x+r.width*.5,r.y+r.height*.5),score));
-            shape.release();
-        }
-        found.sort(Comparator.comparingDouble((Candidate a)->a.score).reversed());
-        return found;
+            Utils.bitmapToMat(photo,image);Utils.bitmapToMat(reference,base);
+            return MarkerFeatureDetector.find(image,base,mapping.shotToMap,metersPerMapPixel);
+        } finally { image.release();base.release(); }
     }
 }

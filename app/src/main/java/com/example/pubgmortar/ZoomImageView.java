@@ -9,6 +9,9 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 import org.opencv.core.Point;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /** Simple camera-photo preview with pinch zoom, drag and pixel-coordinate tapping. */
 public class ZoomImageView extends View {
@@ -16,7 +19,8 @@ public class ZoomImageView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private final ScaleGestureDetector scaleDetector;
     private Bitmap bitmap;
-    private Point fire, target;
+    private Point fire;
+    private List<Point> targets=Collections.emptyList();
     private PointListener listener;
     private float zoom = 1f, panX = 0, panY = 0;
     private float downX, downY, lastX, lastY;
@@ -36,7 +40,10 @@ public class ZoomImageView extends View {
         this.bitmap = bitmap; zoom = 1; panX = panY = 0; invalidate();
     }
     public void setMarkers(Point firing, Point targeting) {
-        fire = firing; target = targeting; invalidate();
+        setTargets(firing,targeting==null?Collections.emptyList():Collections.singletonList(targeting));
+    }
+    public void setTargets(Point firing,List<Point> targeting) {
+        fire=firing; targets=new ArrayList<>(targeting.subList(0,Math.min(4,targeting.size())));invalidate();
     }
     public void setListener(PointListener listener) { this.listener = listener; }
     private float baseScale() {
@@ -58,7 +65,8 @@ public class ZoomImageView extends View {
         paint.setColor(Color.WHITE); canvas.drawBitmap(bitmap, 0, 0, paint);
         canvas.restore();
         drawPin(canvas, fire, Color.rgb(33, 225, 114), "발사");
-        drawPin(canvas, target, Color.rgb(255, 75, 75), "목표");
+        int[] colors={Color.rgb(225,55,55),Color.rgb(220,160,0),Color.rgb(40,125,255),Color.rgb(190,70,230)};
+        for(int i=0;i<targets.size();i++)drawPin(canvas,targets.get(i),colors[i],"목표 "+(i+1));
     }
     private void drawPin(Canvas canvas, Point pt, int color, String text) {
         if (pt == null || bitmap == null) return;

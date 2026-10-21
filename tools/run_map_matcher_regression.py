@@ -4,6 +4,7 @@
 Uses synthetic crops/perspective warps, not a measurement of real camera accuracy.
 Java 17+ with javac is required. Test-only desktop JNI is not bundled in the APK.
 """
+import argparse
 import hashlib
 import os
 from pathlib import Path
@@ -19,6 +20,9 @@ SHA256 = '17823d249cb8ba18bc3cdb878db84936694d1cfaeac0f95517e320c8a8c458d9'
 
 
 def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--markers-only',action='store_true',help='Run only multi-target marker regressions')
+    args=parser.parse_args()
     CACHE.mkdir(parents=True, exist_ok=True)
     jar = CACHE / 'opencv.jar'
     if not jar.exists():
@@ -37,12 +41,14 @@ def main():
         return path
     classes = CACHE / 'classes'
     classes.mkdir(exist_ok=True)
-    sources = [ROOT / 'app/src/main/java/com/example/pubgmortar/MapFeatureMatcher.java']
+    sources = [ROOT / 'app/src/main/java/com/example/pubgmortar' / name for name in ['MapFeatureMatcher.java','MarkerFeatureDetector.java','MortarMath.java']]
     sources += sorted((ROOT / 'tools/native-tests').glob('*.java'))
     subprocess.run([executable('javac'), '-cp', str(jar), '-d', str(classes), *map(str, sources)], check=True)
-    subprocess.run([executable('java'), '-Xmx1g', '-cp', os.pathsep.join([str(classes), str(jar)]),
-                    'MapMatcherRegression', str(ROOT / 'app/src/main/assets/maps/erangel.jpg'),
-                    str(ROOT / 'app/src/main/assets/maps/miramar.jpg')], check=True, cwd=ROOT)
+    command=[executable('java'), '-Xmx1g', '-cp', os.pathsep.join([str(classes), str(jar)])]
+    if not args.markers_only:
+        subprocess.run(command+['MapMatcherRegression', str(ROOT / 'app/src/main/assets/maps/erangel.jpg'),
+                               str(ROOT / 'app/src/main/assets/maps/miramar.jpg')],check=True,cwd=ROOT)
+    subprocess.run(command+['MarkerDetectorRegression'],check=True,cwd=ROOT)
 
 
 if __name__ == '__main__':
