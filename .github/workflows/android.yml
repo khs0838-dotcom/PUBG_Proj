@@ -5,11 +5,9 @@ on:
   push:
     branches:
       - main
-
   pull_request:
     branches:
       - main
-
   workflow_dispatch:
 
 jobs:
@@ -21,8 +19,8 @@ jobs:
       contents: read
 
     steps:
-      # 1. GitHub 소스 다운로드
-      - name: Checkout repository
+      # 1. 소스 체크아웃
+      - name: Checkout source
         uses: actions/checkout@v4
 
       # 2. Java 17 설치
@@ -33,64 +31,46 @@ jobs:
           java-version: '17'
 
       # 3. Android SDK 설치
+      # 제거된 tools 패키지 설치 방지
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
 
-      # 4. Android SDK 패키지 설치
-      - name: Install Android SDK packages
+      # 4. Android API 35 설치
+      - name: Install Android 35 platform and build tools
         run: |
-          sdkmanager "platforms;android-35"
-          sdkmanager "build-tools;35.0.0"
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
       # 5. Gradle 8.9 설치
-      - name: Set up Gradle
+      - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      # 6. 프로젝트 파일 확인
-      - name: Verify project files
+      # 6. 프로젝트 경로 확인
+      - name: Find Android project
+        shell: bash
         run: |
-          echo "Project directory:"
-          pwd
-          echo "Project files:"
-          ls -la
-
-          if [ ! -f settings.gradle ] && [ ! -f settings.gradle.kts ]; then
-            echo "ERROR: settings.gradle not found"
+          if [ -f settings.gradle ] || [ -f settings.gradle.kts ]; then
+            echo "PROJECT_DIR=." >> "$GITHUB_ENV"
+          elif [ -f PUBG_Mortar_Android/settings.gradle ] || [ -f PUBG_Mortar_Android/settings.gradle.kts ]; then
+            echo "PROJECT_DIR=PUBG_Mortar_Android" >> "$GITHUB_ENV"
+          else
+            echo "ERROR: Android project not found"
+            find . -maxdepth 3 -name 'settings.gradle*' -print
             exit 1
           fi
 
-          if [ ! -d app ]; then
-            echo "ERROR: app directory not found"
-            exit 1
-          fi
-
-      # 7. Gradle 버전 확인
-      - name: Check Gradle version
-        run: gradle --version
-
-      # 8. Debug APK 빌드
+      # 7. APK 빌드
       - name: Build Debug APK
-        run: |
-          gradle --no-daemon --stacktrace :app:assembleDebug
+        run: gradle -p "$PROJECT_DIR" --no-daemon --stacktrace :app:assembleDebug
 
-      # 9. APK 생성 확인
-      - name: Verify APK
-        run: |
-          if [ ! -f app/build/outputs/apk/debug/app-debug.apk ]; then
-            echo "ERROR: APK not found"
-            exit 1
-          fi
-
-          echo "APK successfully generated"
-          ls -lh app/build/outputs/apk/debug/
-
-      # 10. APK 다운로드 파일 등록
-      - name: Upload APK artifact
+      # 8. APK 업로드
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: PUBG-Mortar-Calculator-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 30
