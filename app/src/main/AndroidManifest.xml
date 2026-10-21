@@ -6,7 +6,7 @@
             <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>
     </queries>
-    <application android:label="PUBG 박격포 계산기 (시험판)" android:theme="@style/AppTheme" android:allowBackup="false" android:usesCleartextTraffic="false">
+    <application android:label="PUBG 박격포 자동 계산기" android:theme="@style/AppTheme" android:allowBackup="false" android:usesCleartextTraffic="false">
         <activity android:name=".MainActivity" android:exported="true" android:screenOrientation="unspecified">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

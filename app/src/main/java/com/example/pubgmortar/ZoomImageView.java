@@ -50,7 +50,7 @@ public class ZoomImageView extends View {
         super.onDraw(canvas);
         if (bitmap == null) {
             paint.setColor(Color.WHITE); paint.setTextSize(getResources().getDisplayMetrics().density*16f);
-            canvas.drawText("기준 지도 또는 촬영 사진을 불러오세요", 20, getHeight()*0.5f, paint);
+            canvas.drawText("PC 게임 지도를 촬영하세요", 20, getHeight()*0.5f, paint);
             return;
         }
         canvas.save();
