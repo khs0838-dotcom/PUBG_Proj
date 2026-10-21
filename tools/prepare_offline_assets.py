@@ -39,6 +39,14 @@ MAPS=[
     ('paramo','파라모','Chimera_Main',3060),
 ]
 LEGACY_HEIGHT_IDS={'erangel','miramar','sanhok','vikendi','karakin'}
+# Image filenames differ from the telemetry identifiers used in MAPS.
+IMAGE_PREFIXES={
+    'Baltic_Main':'Erangel_Main', 'Desert_Main':'Miramar_Main',
+    'Savage_Main':'Sanhok_Main', 'DihorOtok_Main':'Vikendi_Main',
+    'Tiger_Main':'Taego_Main', 'Kiki_Main':'Deston_Main',
+    'Neon_Main':'Rondo_Main', 'Summerland_Main':'Karakin_Main',
+    'Chimera_Main':'Paramo_Main',
+}
 
 def request(url,limit=160*1024*1024):
     req=urllib.request.Request(url,headers=HEADERS)
@@ -54,26 +62,21 @@ def request(url,limit=160*1024*1024):
 def json_api(url): return json.loads(request(url,12*1024*1024))
 
 def pick_map(map_files,prefix):
-    # Some assets have No_Text / different pixel sizes. Use a consistent latest non-overlay image.
-    choices=[prefix+'_Low_Res.png',prefix+'_No_Text_Low_Res.png',
-             prefix+'_High_Res.png',prefix+'_No_Text_High_Res.png']
+    # Deliberately use small official images; High_Res entries may be LFS pointers.
+    choices=[prefix+'_Low_Res.png',prefix+'_No_Text_Low_Res.png']
     for filename in choices:
         if filename in map_files:return map_files[filename]['download_url']
     return None
 
 def prep_one_map(entry,map_files):
     map_id,title,prefix,meters=entry
-    # Official image assets may use legacy Erangel_Main even though telemetry says Baltic_Main.
-    # This fallback is NOT claimed to be aligned to the remastered 2026 map.
-    candidates=[prefix]+(['Erangel_Main'] if prefix=='Baltic_Main' else [])
+    # Filename aliases identify the map, not the age or current-patch alignment.
+    candidates=list(dict.fromkeys([IMAGE_PREFIXES.get(prefix,prefix),prefix]))
     actual_prefix=next((alias for alias in candidates if pick_map(map_files,alias)),None)
     if actual_prefix is None:
         print('SKIP: official tactical map not published:',prefix,flush=True)
         return None
     url=pick_map(map_files,actual_prefix)
-    if actual_prefix != prefix:
-        print('WARNING: using older official map image',actual_prefix,'for',prefix,flush=True)
-        title += ' (구버전 참고 지도)' 
     print('Fetching official tactical map:',prefix,flush=True)
     data=request(url)
     image=Image.open(io.BytesIO(data))
@@ -101,7 +104,7 @@ def height_tree():
 def fetch_legacy_height(map_info, paths):
     id=map_info['id']
     if id not in LEGACY_HEIGHT_IDS:return
-    if id=='erangel' and map_info.get('map_original')=='Baltic_Main':
+    if id=='erangel' and map_info.get('map_original') in ('Baltic_Main','Erangel_Main'):
         print('WARNING: remastered Erangel height alignment not supported',flush=True)
         return
     candidates=[p for p in paths if p.lower().endswith('.png') and

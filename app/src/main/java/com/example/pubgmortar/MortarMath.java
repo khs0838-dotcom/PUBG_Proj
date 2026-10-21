@@ -17,16 +17,14 @@ public final class MortarMath {
     }
 
     /**
-     * EXPERIMENTAL game-ballistics approximation, not a PUBG official ballistics model.
-     * Ground range (level shot) maxRange ~= 700 m, based on community model.
-     * Returns NaN when the assumed projectile trajectory cannot reach the target.
+     * Battlemap.gg's published heuristic: horizontal + abs(deltaHeight) * 0.5.
+     * This is a reference setting, not a validated trajectory or reachability model.
+     * Range limits are checked separately so out-of-range results remain visible.
      */
-    public static double correctedSetting(double horizontal, double deltaHeight, double maxRange) {
-        if (!(horizontal > 0) || !(maxRange > 0)) return Double.NaN;
-        double tanBeta = deltaHeight / horizontal;
-        double discriminant = maxRange * maxRange - 2 * horizontal * maxRange * tanBeta - horizontal * horizontal;
-        if (discriminant < 0) return Double.NaN;
-        double result = (horizontal + tanBeta * (maxRange - Math.sqrt(discriminant))) / (1 + tanBeta * tanBeta);
+    public static double correctedSetting(double horizontal, double deltaHeight) {
+        if (!(horizontal >= 0) || !Double.isFinite(horizontal) || !Double.isFinite(deltaHeight))
+            return Double.NaN;
+        double result = horizontal + Math.abs(deltaHeight) * 0.5;
         return result >= 0 && Double.isFinite(result) ? result : Double.NaN;
     }
 }

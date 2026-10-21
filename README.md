@@ -1,5 +1,15 @@
 # PUBG Mortar AutoPhoto v0.3 — verification patch
 
+## 현재 개발 변경: 저해상도 지도와 PDF 보정식
+
+- 공식 `api-assets`의 `Low_Res` 지도 9종을 사용합니다. 게임 내부 식별자와 이미지 파일명은 별도로 매핑합니다. 예: `Desert_Main` → `Miramar_Main_Low_Res.png`. `Erangel_Main`이라는 파일명 자체가 구버전이라는 뜻은 아닙니다. 현재 패치와의 지형 일치는 별도 검증이 필요합니다.
+- 고도가 있을 때 **보정 참고거리 = 수평거리 + |목표 고도 − 발사 고도| × 0.5**를 사용합니다. 첨부된 Battlemap.gg PDF의 경험식이며 실제 PUBG 탄도 모델이 아닙니다. 오르막·내리막의 보정값은 같으며, 부호 있는 고도차는 별도로 표시합니다.
+- PDF 사례: 수평거리 457.9m, 고도차 ±16.1m → 465.95m → 화면 표시 466.0m. 결과가 700m를 넘으면 값을 잘라내지 않고 최대 설정거리 초과 안내를 표시합니다.
+- 고도 데이터가 없으면 0으로 가정하지 않고 보정 참고거리 표시를 보류합니다. 현재 클라우드에서 준비한 9종 지도에는 고도 데이터가 없습니다.
+- 저해상도 지도는 파일 용량을 줄이지만 확대된 지도나 휴대폰 촬영 사진의 정합 정확도는 실제 사진으로 검증해야 합니다. U-Net 도입과 촬영 인식 방식 변경은 이번 변경에 포함되지 않습니다.
+
+검증 명령: `gradle --no-daemon :app:assembleDebug :app:testDebugUnitTest`, `python tools/verify_assets.py app/src/main/assets`, `python tools/verify_apk.py app/build/outputs/apk/debug/app-debug.apk`.
+
 ## 왜 기존 APK에서 카메라가 열리지 않았나요?
 
 v0.2 ZIP의 `app/src/main/assets/maps/`에는 `.gitkeep`만 있었습니다. 지도는 APK 빌드 이전에 `tools/prepare_offline_assets.py`를 실행해서 만들어야 했는데, **기존 `Android CI` 워크플로는 이 단계를 실행하지 않았습니다.** v0.2 앱은 지도 누락과 OpenCV 초기화 실패를 같은 오류문구로 표시했기 때문에 정확한 원인을 보여주지도 않았습니다.

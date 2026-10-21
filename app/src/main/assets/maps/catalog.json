@@ -1,0 +1,95 @@
+{
+  "maps": [
+    {
+      "id": "erangel",
+      "title": "에란겔",
+      "image": "maps/erangel.jpg",
+      "world_meters": 8160,
+      "height": "",
+      "height_scale_m": 0.0,
+      "height_verified": false,
+      "map_original": "Erangel_Main"
+    },
+    {
+      "id": "miramar",
+      "title": "미라마",
+      "image": "maps/miramar.jpg",
+      "world_meters": 8160,
+      "height": "",
+      "height_scale_m": 0.0,
+      "height_verified": false,
+      "map_original": "Miramar_Main"
+    },
+    {
+      "id": "sanhok",
+      "title": "사녹",
+      "image": "maps/sanhok.jpg",
+      "world_meters": 4080,
+      "height": "",
+      "height_scale_m": 0.0,
+      "height_verified": false,
+      "map_original": "Sanhok_Main"
+    },
+    {
+      "id": "vikendi",
+      "title": "비켄디",
+      "image": "maps/vikendi.jpg",
+      "world_meters": 8160,
+      "height": "",
+      "height_scale_m": 0.0,
+      "height_verified": false,
+      "map_original": "Vikendi_Main"
+    },
+    {
+      "id": "taego",
+      "title": "태이고",
+      "image": "maps/taego.jpg",
+      "world_meters": 8160,
+      "height": "",
+      "height_scale_m": 0.0,
+      "height_verified": false,
+      "map_original": "Taego_Main"
+    },
+    {
+      "id": "deston",
+      "title": "데스턴",
+      "image": "maps/deston.jpg",
+      "world_meters": 8160,
+      "height": "",
+      "height_scale_m": 0.0,
+      "height_verified": false,
+      "map_original": "Deston_Main"
+    },
+    {
+      "id": "rondo",
+      "title": "론도",
+      "image": "maps/rondo.jpg",
+      "world_meters": 8160,
+      "height": "",
+      "height_scale_m": 0.0,
+      "height_verified": false,
+      "map_original": "Rondo_Main"
+    },
+    {
+      "id": "karakin",
+      "title": "카라킨",
+      "image": "maps/karakin.jpg",
+      "world_meters": 2040,
+      "height": "",
+      "height_scale_m": 0.0,
+      "height_verified": false,
+      "map_original": "Karakin_Main"
+    },
+    {
+      "id": "paramo",
+      "title": "파라모",
+      "image": "maps/paramo.jpg",
+      "world_meters": 3060,
+      "height": "",
+      "height_scale_m": 0.0,
+      "height_verified": false,
+      "map_original": "Paramo_Main"
+    }
+  ],
+  "height_note": "Historical terrain samples are NOT verified as aligned to modern tactical imagery."
+}

@@ -177,9 +177,12 @@ public class MainActivity extends Activity {
                         -h.sample(fire.x/ref.getWidth(),fire.y/ref.getHeight()))*m.heightMetersPerRaw;
                     lines.append(String.format(Locale.KOREA,"고도차: %+.1f m (%s)\n",heightDelta,
                         m.heightVerified?"검증됨":"과거 지형 기준·미검증"));
-                    double setting=MortarMath.correctedSetting(horizontal,heightDelta,700);
-                    if(Double.isFinite(setting))
-                        lines.append(String.format(Locale.KOREA,"고도 보정 추정 조준거리: %.1f m (실험 모델)\n",setting));
+                    double setting=MortarMath.correctedSetting(horizontal,heightDelta);
+                    if(Double.isFinite(setting)) {
+                        lines.append(String.format(Locale.KOREA,"고도 보정 참고거리: %.1f m\n",setting));
+                        lines.append("보정식: 수평거리 + |고도차| × 0.5 (실제 탄착 미검증)\n");
+                        if(setting>700) lines.append("참고: 보정 참고거리가 최대 설정거리 700m 초과\n");
+                    }
                     else lines.append("조준거리 모델: 계산 불가\n");
                 }
                 lines.append("정합 내점 수: ").append(found.transform.inliers).append('\n');
