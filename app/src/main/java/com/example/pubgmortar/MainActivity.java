@@ -145,7 +145,7 @@ public class MainActivity extends Activity {
             try {
                 found=MapRecognizer.detect(getApplicationContext(),shot,maps);
                 if(found==null) {
-                    postFailure(generation,"지도 자동 인식 실패: 모니터를 정면에서, 지도 지형이 넓게 보이게 다시 촬영하세요.");return;
+                    postFailure(generation,"지도 자동 인식 실패: 반사·흔들림을 줄이고 도로·건물 등 지형 특징과 웨이포인트가 함께 보이게 촬영하세요. 과도하게 확대된 저해상도 지도는 인식이 어려울 수 있습니다.");return;
                 }
                 MapCatalog.Entry m=found.entry;
                 Bitmap ref=found.reference;
