@@ -1,61 +1,31 @@
-# PUBG Mortar Auto Photo — Android v0.2 (prototype)
+# PUBG Mortar AutoPhoto v0.3 — verification patch
 
-> **Target experience: open APK → phone camera opens → take ONE photo of the PC PUBG tactical map → show result or honest recognition failure.**
->
-> This is a **source project**, not a tested APK. It has no user-facing map selector, elevation selector, width field, point picker or manual calibration. Unlike v0.1, it does not ask a player to prepare reference map files.
->
-> **IMPORTANT: fully automatic marker recognition is an unvalidated color/shape heuristic, not a trained PUBG marker recognizer. This project is not yet a reliable one-photo production calculator.**
+## 왜 기존 APK에서 카메라가 열리지 않았나요?
 
-## What changed from the previous APK
+v0.2 ZIP의 `app/src/main/assets/maps/`에는 `.gitkeep`만 있었습니다. 지도는 APK 빌드 이전에 `tools/prepare_offline_assets.py`를 실행해서 만들어야 했는데, **기존 `Android CI` 워크플로는 이 단계를 실행하지 않았습니다.** v0.2 앱은 지도 누락과 OpenCV 초기화 실패를 같은 오류문구로 표시했기 때문에 정확한 원인을 보여주지도 않았습니다.
 
-- On opening the app, it automatically launches the Android camera app.
-- A single picture is all the user submits; there are no import-map/import-height/configuration controls.
-- OpenCV attempts to match the picture with every map bundled in the APK, and estimates screenshot magnification and camera perspective (homography).
-- Colored waypoint marker and white triangle player icon detection runs automatically on the registered photo. **If ambiguous, the app shows a failure, not made-up coordinates.**
-- If the map and both markers are detected, outputs horizontal distance and bearing automatically.
-- If that map also includes historical 16-bit height data, shows **unverified** height difference and an **experimental** ballistic correction. Otherwise explicitly reports elevation unavailable.
-- All map assets download **during APK build in GitHub Actions** and are stored inside the APK (no user setup, no network needed when using the app).
+## v0.3 수정사항
 
-## Requirements in the GAME screenshot
+- Android 앱 시작 시 **기준 지도 개수 / 역사적 고도 데이터 개수 / OpenCV 초기화 결과**를 각각 표시합니다.
+- 소스에 실물 지도가 없다면 Gradle `:app:assembleDebug`가 실패하도록 `verifyOfflineMaps`를 연결했습니다. 이제 **지도 없는 APK를 성공으로 내보내지 않습니다.**
+- GitHub Actions `.github/workflows/android.yml`은 지도 다운로드 → 데이터 파일검사 → Gradle 빌드 → **최종 APK 압축파일 검사(OpenCV 네이티브 .so 포함)** 순서로 실행합니다.
+- 공식 지도의 구버전 에란겔 파일명 `Erangel_Main`을 폴백으로 인식하지만 현재 게임 지도와 다를 수 있어 화면에 구버전임을 표시합니다.
+- 앱 안에서 사용자가 지도 또는 고도 파일을 가져오는 UI는 없습니다.
 
-1. PC PUBG tactical map must be visible in the picture (not only the 3D battlefield).
-2. Player location and target waypoint should both be visible; otherwise a single static image does not contain the necessary data.
-3. Map terrain needs enough recognizable features; excessively cropped/blurred/zoomed/repetitive views may fail alignment.
-4. Camera screen perspective, glare, game colorblind mode, team marker colors and PUBG updates may make marker detector fail or choose a wrong marker.
+## 중요한 한계
 
-## How to get an APK
+이 ZIP에는 **PUBG 실제 지도 JPEG/고도 HMAP/OpenCV 네이티브 바이너리가 들어 있지 않습니다.** 지도는 GitHub Actions 빌드 도중 **PUBG 공식 API 리포지토리에서 다운로드하여 APK에 내장**하게 되어 있습니다. OpenCV는 `org.opencv:opencv:4.11.0` Gradle 의존성을 통해 APK에 포함됩니다.
 
-1. Replace the old GitHub repository contents with **the contents of this source ZIP**. Keep `.github/workflows/build-apk.yml` and `tools/`.
-2. Keep only this workflow if the older one is still running. If your default branch is not `main`, change the trigger.
-3. In **GitHub → Actions → Build PUBG Auto-Photo APK → Run workflow**, run the build.
-4. The workflow downloads tactical PNGs from the official developer repository and, where available, historical height images from the community source. It converts them into offline Android assets and builds `:app:assembleDebug` using JDK17 / Gradle8.9 / Android SDK35.
-5. If the build succeeds, get `app-debug.apk` from the `PUBG-Mortar-AutoPhoto-APK` artifact, install it, and take a photo. The app does not ask for map files.
+과거 고도 데이터는 `cgcostume/pubg-maps`의 PC v5.7.6 소스에서 선택적으로 시도합니다. 일부 또는 전체 맵에서 **고도 파일이 전혀 없을 수 있습니다**. 파일이 있더라도 좌표 정합, 높이 단위, 현재 맵과의 일치가 검증되지 않았습니다. 최종 APK 검사는 **파일 포함 여부**만 검증하며 고도 측정 정확도를 보증하지 않습니다. 촬영 사진에서 완전 자동으로 내 위치와 목표 핑을 식별하는 알고리즘도 아직 실사용 검증 전입니다.
 
-**Note**: GitHub Actions must have network access to GitHub asset hosts. A failed asset download means the build will fail (no fake demo maps silently shipped). Elevation download failure means that specific map remains usable for distance only, not elevation.
+## GitHub에서 새 APK 제작
 
-## Accuracy caveats
+1. 기존 GitHub 저장소 파일을 v0.3 ZIP 안의 `PUBG_Mortar_AutoPhoto_V3` 폴더 **내용물**로 교체합니다. GitHub 최상위에 `settings.gradle`, `app/`, `tools/`, `.github/workflows/android.yml`이 있도록 배치합니다.
+2. 기존 `.github/workflows` 안에 있는 **오래된 `build-apk.yml` / `android.yml`은 삭제/교체**하여 작업이 중복 실행되지 않도록 합니다. 남은 워크플로는 `PUBG Android CI (verified offline maps)` 하나여야 합니다.
+3. GitHub → Actions → `PUBG Android CI (verified offline maps)` → `Run workflow` 실행.
+4. 로그에서 `Validate source assets BEFORE building`가 **지도 N개** 확인, `Validate final APK contains maps and OpenCV`가 **지도 N개, OpenCV lib/...**를 표시해야 합니다.
+5. 성공 후 Artifacts → `PUBG-Mortar-Checked-APK` 설치.
 
-- The 8km or 4km map sizes are **nominal grid extents**, not survey-grade image georeferencing. Padding in map images and game updates can shift positions. Verify against in-game 100m grid.
-- Height reference used here is `cgcostume/pubg-maps` **PUBG PC v5.7.6** where available, not recent 2026 content. See <https://github.com/cgcostume/pubg-maps/releases>. Scale `raw / 128` meters is only an **illustrative UE terrain assumption** and has **NOT** been calibrated against authoritative PUBG heights or aligned with the current API map imagery. A displayed height difference may therefore be wrong, including sign/magnitude.
-- Terrain height maps don't include building rooftops and cannot tell whether you are standing upstairs.
-- `MortarMath.correctedSetting` is an **unverified, nonofficial** approximation. It is not a substitute for measurements of actual game projectile trajectory.
-- Marker detector is an initial OpenCV image-overlay heuristic based on a white player-arrow candidate and a colored target-marker candidate. **It is not an ML recognizer; it will often fail, and may still be wrong when it returns a result.** The app flags this prominently.
-- Android APK build and physical smartphone camera image recognition **could not be tested** in the creation environment because Android SDK/Gradle and live PUBG screenshots are unavailable. Only the build-time asset conversion logic (with mock downloads), YAML parsing and Java math compilation were checked.
+`Prepare bundled official PUBG map images ...` 단계에서 GitHub API 한도/네트워크 실패 시 APK 빌드를 중단합니다. 고도맵 다운로드 오류는 경고하고 거리 계산용 APK만 제작할 수 있습니다. **고도 파일 0개여도 빌드가 성공할 수 있습니다**. 이 동작은 고도 계산이 된다고 잘못 표시하는 것보다 안전하지만, 처음 요청하신 완성형 고도 포함 앱에 아직 미달합니다.
 
-## Developer implementation notes
-
-- `tools/prepare_offline_assets.py` queries the official `pubg/api-assets` GitHub directory for available map filenames and downloads map images. It chooses from low- and high-res versions, downscales to 2000px JPEG, emits `app/src/main/assets/maps/catalog.json`.
-- Optionally tries to fetch historical 16-bit PNGs from cgcostume's `v5.7.6` tag if the map is supported. If absent / not uint16, no height resource is emitted.
-- At runtime `MapCatalog` loads the prepackaged resources, `MapRecognizer` uses ORB + RANSAC to select a map, and `MarkerDetector` uses a warped reference map to detect visually distinct markers.
-- `MainActivity` shows camera view immediately and displays results; no server calls.
-- `FETCH_LEGACY_HEIGHT=0` in workflow disables retrieval of historical height data if their build download becomes slow/unavailable. Users never need to change settings.
-
-## Data provenance and rights
-
-- Official PUBG map assets: <https://github.com/pubg/api-assets> — **must be used in accordance with PUBG Terms of Use and player-created content rules.** The project does not redistribute map PNGs in its ZIP; each personal APK build fetches them from their source.
-- Historical terrain data: <https://github.com/cgcostume/pubg-maps> — extracted maps may have redistribution restrictions; check before distributing an APK.
-- This project is unofficial and not affiliated with PUBG or KRAFTON.
-
-## Next step for real one-photo reliability
-
-Acquire a dataset of actual PUBG screenshots / phone photos with player and target icons annotated, different map zoom settings, colorblind modes, monitor angles and map identities. Train/test an actual player/target marker detector, verify reference-map alignment and height/unit calibration, then validate against known in-game mortar distances / shots. Until then this is a functional **prototype architecture**, not a dependable calibrated shot calculator.
+실제로 사용할 APK의 파일 여부와 기기에서의 OpenCV 로딩 성공은 해당 Actions 실행 로그 및 앱 첫 화면의 세부 진단으로 확인해 주세요.

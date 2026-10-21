@@ -35,20 +35,32 @@ public class MainActivity extends Activity {
     private Bitmap photo;
     private int captureGeneration;
     private boolean opencvReady;
+    private String opencvProblem="검사 전";
+    private String mapProblem="검사 전";
 
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
         setContentView(buildUi());
-        opencvReady=OpenCVLoader.initLocal();
+        try {
+            opencvReady=OpenCVLoader.initLocal();
+            opencvProblem=opencvReady?"정상":"OpenCVLoader.initLocal() = false (네이티브 라이브러리 확인 필요)";
+        } catch (Throwable e) {
+            opencvReady=false;
+            opencvProblem=e.getClass().getSimpleName()+": "+String.valueOf(e.getMessage());
+        }
         try {
             maps=MapCatalog.load(this);
-            status.setText("내장 지도 "+maps.size()+"개 준비됨. PC의 지도에서 자신의 위치와 목표 핑이 모두 보이게 촬영하세요.");
-            // Show the camera as soon as the app launches (one photo, no setup wizard).
-            preview.post(this::openCamera);
+            int heights=0;
+            for (MapCatalog.Entry entry: maps) if (!entry.heightPath.isEmpty()) heights++;
+            mapProblem="정상 ("+maps.size()+"개 지도 / "+heights+"개 과거 고도 데이터)";
         } catch (Exception e) {
-            status.setText("기준 지도 자동 준비 실패: "+e.getMessage()+"\n빌드 로그의 Prepare offline PUBG maps 단계를 확인하세요.");
+            maps=null;
+            mapProblem="실패: "+e.getClass().getSimpleName()+": "+String.valueOf(e.getMessage());
         }
-        if(!opencvReady) status.setText("OpenCV 초기화 실패. 이 APK에서 사진 분석을 할 수 없습니다.");
+        status.setText(healthReport());
+        if (opencvReady && maps!=null && !maps.isEmpty()) {
+            preview.post(this::openCamera);
+        }
     }
 
     private int dp(int d) {return (int)(d*getResources().getDisplayMetrics().density+0.5f);}
@@ -71,9 +83,15 @@ public class MainActivity extends Activity {
         root.addView(label("주의: 핑·내 위치 아이콘 식별은 아직 실전 정확도가 검증되지 않은 시험 기능입니다. 여러 마커가 겹치거나 지도 특징이 적으면 수치를 추측하지 않고 인식 실패로 표시합니다.\n구버전 지형 고도맵은 최신 PUBG 고도와 다를 수 있으며, 박격포 탄도 보정값은 공식 검증값이 아닙니다.",12,Color.GRAY));
         return scroll;
     }
+    private String healthReport() {
+        return "앱 자료 점검\n• 기준 지도: "+mapProblem+"\n• OpenCV: "+opencvProblem+
+            "\n\n"+((maps!=null && !maps.isEmpty() && opencvReady) ?
+            "준비 완료. 촬영 후 자동 계산합니다. (고도는 해당 맵에 자료가 있을 때만)" :
+            "이 APK는 촬영을 실행할 수 없습니다. GitHub Actions의 자료 준비 및 APK 검증 로그를 확인하세요.");
+    }
     private void openCamera() {
         if(maps==null || maps.isEmpty() || !opencvReady) {
-            status.setText("앱에 실제 기준 지도 또는 OpenCV가 없습니다. 새 APK 빌드를 확인하세요.");return;
+            status.setText(healthReport());return;
         }
         try {
             File dir=getExternalFilesDir(Environment.DIRECTORY_PICTURES);

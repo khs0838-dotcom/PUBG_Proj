@@ -8,8 +8,8 @@ android {
         applicationId 'com.example.pubgmortar'
         minSdk 26
         targetSdk 28
-        versionCode 2
-        versionName '0.2-auto-photo'
+        versionCode 3
+        versionName '0.3-verified-assets'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -22,4 +22,38 @@ dependencies {
     implementation 'androidx.exifinterface:exifinterface:1.3.7'
     implementation 'org.opencv:opencv:4.11.0'
     testImplementation 'junit:junit:4.13.2'
+}
+
+
+// A direct Android Studio / legacy "Android CI" build must never silently ship
+// an APK with no maps. Preparation happens in GitHub Actions before this task.
+tasks.register('verifyOfflineMaps') {
+    doLast {
+        def rootDir = file('src/main/assets/maps')
+        def catalog = new File(rootDir, 'catalog.json')
+        if (!catalog.isFile()) {
+            throw new GradleException('지도 데이터 누락: Python tools/prepare_offline_assets.py를 먼저 실행해야 합니다. 올바른 GitHub Actions 워크플로를 사용하세요.')
+        }
+        def parsed = new groovy.json.JsonSlurper().parse(catalog)
+        if (!parsed.maps || parsed.maps.isEmpty()) {
+            throw new GradleException('지도 목록이 비어 있습니다. 지도 없는 APK 생성을 중단합니다.')
+        }
+        parsed.maps.each { entry ->
+            def img = file("src/main/assets/${entry.image}")
+            if (!img.isFile() || img.length() < 10000) {
+                throw new GradleException("지도 이미지가 없거나 손상됨: ${entry.image}")
+            }
+            if (entry.height) {
+                def hmap = file("src/main/assets/${entry.height}")
+                if (!hmap.isFile() || hmap.length() < 12) {
+                    throw new GradleException("고도 데이터가 없거나 손상됨: ${entry.height}")
+                }
+            }
+        }
+        println "내장 PUBG 지도 ${parsed.maps.size()}개 확인 (고도는 별도 검증 필요)"
+    }
+}
+// Use task matching so this also runs with both debug and release variants.
+tasks.configureEach { t ->
+    if (t.name == 'preBuild') t.dependsOn('verifyOfflineMaps')
 }

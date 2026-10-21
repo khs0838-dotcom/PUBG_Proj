@@ -28,15 +28,15 @@ if os.environ.get('GITHUB_TOKEN'):
 
 # The dimensions are *nominal* 1km-grid map extents. Map image margins/version affect precision.
 MAPS=[
-    ('erangel','에란겔','Baltic_Main',8000),
-    ('miramar','미라마','Desert_Main',8000),
-    ('sanhok','사녹','Savage_Main',4000),
-    ('vikendi','비켄디','DihorOtok_Main',6000),
-    ('taego','태이고','Tiger_Main',8000),
-    ('deston','데스턴','Kiki_Main',8000),
-    ('rondo','론도','Neon_Main',8000),
-    ('karakin','카라킨','Summerland_Main',2000),
-    ('paramo','파라모','Chimera_Main',3000),
+    ('erangel','에란겔','Baltic_Main',8160),
+    ('miramar','미라마','Desert_Main',8160),
+    ('sanhok','사녹','Savage_Main',4080),
+    ('vikendi','비켄디','DihorOtok_Main',8160),
+    ('taego','태이고','Tiger_Main',8160),
+    ('deston','데스턴','Kiki_Main',8160),
+    ('rondo','론도','Neon_Main',8160),
+    ('karakin','카라킨','Summerland_Main',2040),
+    ('paramo','파라모','Chimera_Main',3060),
 ]
 LEGACY_HEIGHT_IDS={'erangel','miramar','sanhok','vikendi','karakin'}
 
@@ -63,10 +63,17 @@ def pick_map(map_files,prefix):
 
 def prep_one_map(entry,map_files):
     map_id,title,prefix,meters=entry
-    url=pick_map(map_files,prefix)
-    if url is None:
+    # Official image assets may use legacy Erangel_Main even though telemetry says Baltic_Main.
+    # This fallback is NOT claimed to be aligned to the remastered 2026 map.
+    candidates=[prefix]+(['Erangel_Main'] if prefix=='Baltic_Main' else [])
+    actual_prefix=next((alias for alias in candidates if pick_map(map_files,alias)),None)
+    if actual_prefix is None:
         print('SKIP: official tactical map not published:',prefix,flush=True)
         return None
+    url=pick_map(map_files,actual_prefix)
+    if actual_prefix != prefix:
+        print('WARNING: using older official map image',actual_prefix,'for',prefix,flush=True)
+        title += ' (구버전 참고 지도)' 
     print('Fetching official tactical map:',prefix,flush=True)
     data=request(url)
     image=Image.open(io.BytesIO(data))
@@ -79,7 +86,7 @@ def prep_one_map(entry,map_files):
     img.save(DEST/fname,'JPEG',quality=91,subsampling=0,optimize=True)
     return {'id':map_id,'title':title,'image':'maps/'+fname,
             'world_meters':meters,'height':'','height_scale_m':0.0,
-            'height_verified':False,'map_original':prefix}
+            'height_verified':False,'map_original':actual_prefix}
 
 def height_tree():
     # Old extraction release, NOT confirmed accurate for new terrain / world position.
@@ -94,6 +101,9 @@ def height_tree():
 def fetch_legacy_height(map_info, paths):
     id=map_info['id']
     if id not in LEGACY_HEIGHT_IDS:return
+    if id=='erangel' and map_info.get('map_original')=='Baltic_Main':
+        print('WARNING: remastered Erangel height alignment not supported',flush=True)
+        return
     candidates=[p for p in paths if p.lower().endswith('.png') and
                 re.search(r'height_l16_lod0',p.lower()) and
                 (p.lower().startswith(id+'/') or ('_'+id+'_') in p.lower())]
